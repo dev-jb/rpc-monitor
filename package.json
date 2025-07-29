@@ -1,0 +1,22 @@
+{
+  "name": "rpc-monitor",
+  "version": "1.0.0",
+  "description": "Independent RPC Monitoring Service",
+  "main": "rpc_monitor.js",
+  "scripts": {
+    "start": "node rpc_monitor.js",
+    "dev": "node rpc_monitor.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^17.2.1",
+    "express": "^4.18.2"
+  },
+  "keywords": [
+    "rpc",
+    "monitor",
+    "blockchain"
+  ],
+  "author": "",
+  "license": "MIT"
+}

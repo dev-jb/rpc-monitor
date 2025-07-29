@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RPC Endpoint Monitor</title>
+    <style>
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .header h1 {
+        color: #333;
+        margin: 0;
+      }
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+      .summary-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        text-align: center;
+      }
+      .summary-card h3 {
+        margin-top: 0;
+        color: #333;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .summary-value {
+        font-size: 2em;
+        font-weight: bold;
+        margin: 10px 0;
+      }
+      .summary-healthy {
+        color: #28a745;
+      }
+      .summary-partial {
+        color: #ffc107;
+      }
+      .summary-unhealthy {
+        color: #dc3545;
+      }
+      .summary-total {
+        color: #007bff;
+      }
+
+      .system-resources {
+        margin-bottom: 30px;
+      }
+
+      .system-resource-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+
+      .system-resource-card h3 {
+        color: white;
+      }
+
+      .system-resource-card .summary-value {
+        color: white;
+      }
+
+      .endpoints-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+      .endpoint-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      .endpoint-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #eee;
+      }
+      .endpoint-name {
+        font-weight: bold;
+        color: #333;
+        font-size: 18px;
+      }
+      .endpoint-url {
+        color: #666;
+        font-size: 12px;
+        word-break: break-all;
+      }
+      .health-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 8px;
+      }
+      .status-good {
+        background-color: #28a745;
+      }
+      .status-warning {
+        background-color: #ffc107;
+      }
+      .status-error {
+        background-color: #dc3545;
+      }
+      .health-score {
+        font-weight: bold;
+        font-size: 16px;
+      }
+      .health-good {
+        color: #28a745;
+      }
+      .health-warning {
+        color: #ffc107;
+      }
+      .health-error {
+        color: #dc3545;
+      }
+      .health-unknown {
+        color: #6c757d;
+      }
+
+      .test-results {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+      }
+      .test-item {
+        padding: 8px;
+        border-radius: 5px;
+        background-color: #f8f9fa;
+        border-left: 4px solid #dee2e6;
+      }
+      .test-item.success {
+        background-color: #d4edda;
+        border-left-color: #28a745;
+      }
+      .test-item.warning {
+        background-color: #fff3cd;
+        border-left-color: #ffc107;
+      }
+      .test-item.error {
+        background-color: #f8d7da;
+        border-left-color: #dc3545;
+      }
+      .test-label {
+        font-weight: 500;
+        color: #333;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .test-value {
+        font-weight: bold;
+        color: #333;
+        font-size: 14px;
+        margin-top: 2px;
+      }
+      .test-error {
+        color: #dc3545;
+        font-size: 11px;
+        margin-top: 2px;
+      }
+      .test-details {
+        color: #666;
+        font-size: 11px;
+        margin-top: 2px;
+      }
+
+      .refresh-btn {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-bottom: 20px;
+      }
+      .refresh-btn:hover {
+        background: #0056b3;
+      }
+
+      .timestamp {
+        color: #666;
+        font-size: 12px;
+        text-align: center;
+        margin-top: 20px;
+      }
+      .loading {
+        text-align: center;
+        color: #666;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🔗 RPC Endpoint Monitor</h1>
+        <button class="refresh-btn" onclick="refreshData()">🔄 Refresh</button>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <h3>Total Endpoints</h3>
+          <div class="summary-value summary-total" id="total-endpoints">-</div>
+        </div>
+        <div class="summary-card">
+          <h3>Healthy</h3>
+          <div class="summary-value summary-healthy" id="healthy-endpoints">
+            -
+          </div>
+        </div>
+        <div class="summary-card">
+          <h3>Partially Healthy</h3>
+          <div class="summary-value summary-partial" id="partial-endpoints">
+            -
+          </div>
+        </div>
+        <div class="summary-card">
+          <h3>Unhealthy</h3>
+          <div class="summary-value summary-unhealthy" id="unhealthy-endpoints">
+            -
+          </div>
+        </div>
+        <div class="summary-card">
+          <h3>Overall Health</h3>
+          <div class="summary-value" id="overall-health">-</div>
+        </div>
+      </div>
+
+      <div class="endpoints-grid" id="endpoints-container">
+        <div class="loading">Loading endpoints...</div>
+      </div>
+
+      <div class="timestamp" id="last-updated">Last updated: Never</div>
+    </div>
+
+    <script>
+      function getHealthClass(score) {
+        if (score >= 80) return 'health-good';
+        if (score >= 50) return 'health-warning';
+        return 'health-error';
+      }
+
+      function getHealthIndicator(score) {
+        if (score >= 80) return 'status-good';
+        if (score >= 50) return 'status-warning';
+        return 'status-error';
+      }
+
+      function formatTestValue(test, testName, endpointData) {
+        if (!test.success) return 'Failed';
+
+        switch (test.constructor.name) {
+          case 'Object':
+            if (test.block !== undefined) {
+              let blockValue = test.block.toLocaleString();
+
+              // Add visual indicators for block number based on sync status
+              if (
+                testName === 'blockNumber' &&
+                endpointData &&
+                endpointData.blockDifference
+              ) {
+                const diff = endpointData.blockDifference;
+                if (diff.difference > 10) {
+                  blockValue = `🔴 ${blockValue}`;
+                } else if (diff.difference === 1) {
+                  blockValue = `🟡 ${blockValue}`;
+                } else if (diff.difference > 0) {
+                  blockValue = `⏳ ${blockValue}`;
+                } else if (diff.difference < 0) {
+                  blockValue = `⚠️ ${blockValue}`;
+                } else {
+                  blockValue = `✅ ${blockValue}`;
+                }
+              }
+
+              return blockValue;
+            }
+            if (test.chainId !== undefined) return test.chainId;
+            if (test.gasPriceGwei !== undefined)
+              return `${test.gasPriceGwei} Gwei`;
+            if (test.peerCount !== undefined) return test.peerCount;
+            if (test.syncing !== undefined)
+              return test.syncing ? 'Syncing' : 'Synced';
+            return 'Success';
+          default:
+            return test.toString();
+        }
+      }
+
+      function getBlockNumberClass(testName, testResult, endpointData) {
+        if (testName !== 'blockNumber')
+          return testResult.success ? 'success' : 'error';
+
+        if (!testResult.success) return 'error';
+
+        // Check if this endpoint has block difference data
+        if (endpointData.blockDifference) {
+          const diff = endpointData.blockDifference;
+          if (diff.difference > 10) {
+            return 'error'; // Red for > 10 blocks behind
+          } else if (diff.difference === 1) {
+            return 'warning'; // Yellow for 1 block behind
+          } else if (diff.difference > 0) {
+            return 'warning'; // Yellow for 2-10 blocks behind
+          } else if (diff.difference < 0) {
+            return 'error'; // Red for ahead
+          }
+        }
+
+        return 'success'; // Green for synced or no difference data
+      }
+
+      function createEndpointCard(endpointKey, endpointData) {
+        console.log('🎴 Creating card for:', endpointKey, endpointData);
+
+        // Handle missing or incomplete data
+        if (!endpointData || !endpointData.health) {
+          console.log('⚠️ Missing health data for:', endpointKey);
+
+          // Check if this is a loading state
+          if (endpointData?.loading) {
+            return `
+              <div class="endpoint-card" data-endpoint="${endpointKey}">
+                <div class="endpoint-header">
+                  <div>
+                    <div class="endpoint-name">${
+                      endpointData?.name || endpointKey
+                    }</div>
+                    <div class="endpoint-url">${
+                      endpointData?.url || 'N/A'
+                    }</div>
+                  </div>
+                  <div class="health-score warning">
+                    <span class="health-indicator warning"></span>
+                    0.0%
+                  </div>
+                </div>
+                <div class="test-results">
+                  <div class="test-item warning">
+                    <div class="test-label">Status</div>
+                    <div class="test-value">🔄 Loading...</div>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+
+          return `
+            <div class="endpoint-card" data-endpoint="${endpointKey}">
+              <div class="endpoint-header">
+                <div>
+                  <div class="endpoint-name">${
+                    endpointData?.name || endpointKey
+                  }</div>
+                  <div class="endpoint-url">${endpointData?.url || 'N/A'}</div>
+                </div>
+                <div class="health-score error">
+                  <span class="health-indicator error"></span>
+                  0.0%
+                </div>
+              </div>
+              <div class="test-results">
+                <div class="test-item error">
+                  <div class="test-label">Status</div>
+                  <div class="test-value">Failed to load</div>
+                  <div class="test-error">Connection timeout</div>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        const healthClass = getHealthClass(endpointData.health.score);
+        const healthIndicator = getHealthIndicator(endpointData.health.score);
+
+        let testsHtml = '';
+        if (endpointData.tests && Object.keys(endpointData.tests).length > 0) {
+          for (const [testName, testResult] of Object.entries(
+            endpointData.tests
+          )) {
+            const testClass = getBlockNumberClass(
+              testName,
+              testResult,
+              endpointData
+            );
+            const testValue = formatTestValue(
+              testResult,
+              testName,
+              endpointData
+            );
+
+            testsHtml += `
+              <div class="test-item ${testClass}">
+                <div class="test-label">${testName
+                  .replace(/([A-Z])/g, ' $1')
+                  .trim()}</div>
+                <div class="test-value">${testValue}</div>
+                ${
+                  !testResult.success
+                    ? `<div class="test-error">${testResult.error}</div>`
+                    : ''
+                }
+              </div>
+            `;
+          }
+        }
+
+        // Add block difference if available
+        if (endpointData.blockDifference) {
+          const diff = endpointData.blockDifference;
+          let diffClass = 'success';
+          let diffIcon = '✅';
+          let diffText = 'Synced';
+
+          if (!diff.isSynced) {
+            if (diff.isBehind) {
+              if (diff.difference > 10) {
+                diffClass = 'error'; // Red for > 10 blocks behind
+                diffIcon = '🔴';
+              } else if (diff.difference === 1) {
+                diffClass = 'warning'; // Yellow for 1 block behind
+                diffIcon = '🟡';
+              } else {
+                diffClass = 'warning'; // Default warning for other cases
+                diffIcon = '⏳';
+              }
+              diffText = `${diff.difference} behind`;
+            } else {
+              diffClass = 'error'; // Red for ahead
+              diffIcon = '⚠️';
+              diffText = `${Math.abs(diff.difference)} ahead`;
+            }
+          }
+
+          testsHtml += `
+            <div class="test-item ${diffClass}">
+              <div class="test-label">Block Difference</div>
+              <div class="test-value">${diffIcon} ${diffText}</div>
+              <div class="test-error">Ref: ${diff.referenceBlock.toLocaleString()} | Current: ${diff.currentBlock.toLocaleString()}</div>
+            </div>
+          `;
+        }
+
+        // Add system resources if available
+        if (endpointData.system) {
+          const system = endpointData.system;
+
+          // RAM
+          if (system.ram && system.ram.success) {
+            testsHtml += `
+              <div class="test-item success">
+                <div class="test-label">🧠 RAM</div>
+                <div class="test-value">${system.ram.percentage}%</div>
+                <div class="test-details">${system.ram.used} / ${system.ram.total}</div>
+              </div>
+            `;
+          }
+
+          // Disk
+          if (system.disk && system.disk.success) {
+            testsHtml += `
+              <div class="test-item success">
+                <div class="test-label">💾 Disk</div>
+                <div class="test-value">${system.disk.usage_percent}%</div>
+                <div class="test-details">${system.disk.used} / ${system.disk.total}</div>
+              </div>
+            `;
+          }
+
+          // CPU
+          if (system.cpu && system.cpu.success) {
+            let cpuValue, cpuDetails;
+
+            if (system.cpu.usageType === 'percentage') {
+              cpuValue = `${system.cpu.usage}%`;
+              cpuDetails = `${system.cpu.cores} cores`;
+            } else if (system.cpu.usageType === 'load_average') {
+              cpuValue = `${system.cpu.usage} (1min load)`;
+              cpuDetails = `${system.cpu.cores} cores`;
+            } else if (
+              system.cpu.usage === 'N/A (using load average)' &&
+              system.cpu.loadAverage
+            ) {
+              // Handle old format from servers that haven't been updated yet
+              cpuValue = `${system.cpu.loadAverage['1min']} (1min load)`;
+              cpuDetails = `${system.cpu.cores} cores`;
+            } else {
+              cpuValue = `${system.cpu.usage}`;
+              cpuDetails = `${system.cpu.cores} cores`;
+            }
+
+            testsHtml += `
+              <div class="test-item success">
+                <div class="test-label">⚡ CPU</div>
+                <div class="test-value">${cpuValue}</div>
+                <div class="test-details">${cpuDetails}</div>
+              </div>
+            `;
+          }
+        }
+
+        return `
+          <div class="endpoint-card" data-endpoint="${endpointKey}">
+            <div class="endpoint-header">
+              <div>
+                <div class="endpoint-name">${endpointData.name}</div>
+                <div class="endpoint-url">${endpointData.url}</div>
+              </div>
+              <div class="health-score ${healthClass}">
+                <span class="health-indicator ${healthIndicator}"></span>
+                ${endpointData.health.score.toFixed(1)}%
+              </div>
+            </div>
+            <div class="test-results">
+              ${testsHtml}
+            </div>
+          </div>
+        `;
+      }
+
+      function updateSummary(data) {
+        const summary = data.summary;
+        document.getElementById('total-endpoints').textContent = summary.total;
+        document.getElementById('healthy-endpoints').textContent =
+          summary.healthy;
+        document.getElementById('partial-endpoints').textContent =
+          summary.partiallyHealthy;
+        document.getElementById('unhealthy-endpoints').textContent =
+          summary.unhealthy;
+        document.getElementById(
+          'overall-health'
+        ).textContent = `${summary.overallHealth.toFixed(1)}%`;
+      }
+
+      function updateEndpoints(data) {
+        const container = document.getElementById('endpoints-container');
+        let endpointsHtml = '';
+
+        for (const [endpointKey, endpointData] of Object.entries(
+          data.endpoints
+        )) {
+          endpointsHtml += createEndpointCard(endpointKey, endpointData);
+        }
+
+        container.innerHTML = endpointsHtml;
+      }
+
+      async function refreshData() {
+        console.log('🚀 refreshData() called');
+        try {
+          // Clear the container and show loading state
+          const container = document.getElementById('endpoints-container');
+          console.log('📦 Container found:', container);
+          container.innerHTML =
+            '<div class="loading">🔄 Loading endpoints...</div>';
+
+          // Fetch available endpoints dynamically
+          console.log('🔄 Fetching endpoints...');
+          fetch('/api/endpoints')
+            .then((res) => {
+              console.log('📡 Response status:', res.status);
+              if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+              }
+              return res.json();
+            })
+            .then((endpoints) => {
+              console.log('📋 Endpoints received:', endpoints);
+              if (!endpoints || endpoints.length === 0) {
+                console.log('❌ No endpoints available');
+                container.innerHTML =
+                  '<div class="loading">No endpoints available</div>';
+                return;
+              }
+
+              // Create promises for all endpoints
+              console.log(
+                '🔗 Creating promises for endpoints:',
+                endpoints.map((e) => e.key)
+              );
+
+              // Create placeholder cards first in the correct order
+              endpoints.forEach((endpoint) => {
+                updateEndpointCard(endpoint.key, {
+                  name: endpoint.name,
+                  url: endpoint.url,
+                  health: { score: 0 },
+                  tests: {},
+                  loading: true,
+                });
+              });
+
+              const endpointPromises = endpoints.map((endpoint) =>
+                fetch(`/api/${endpoint.key}`).then((res) => res.json())
+              );
+
+              // Create a map to track completion order and ensure proper display order
+              const completedData = new Map();
+
+              // Handle each endpoint as it completes
+              endpointPromises.forEach((promise, index) => {
+                const endpoint = endpoints[index];
+                promise
+                  .then((data) => {
+                    completedData.set(endpoint.key, data);
+                    updateEndpointCard(endpoint.key, data);
+
+                    // Calculate block difference if this endpoint has a reference
+                    if (endpoint.compare_with) {
+                      const referencePromise = endpointPromises.find(
+                        (_, i) => endpoints[i].key === endpoint.compare_with
+                      );
+                      if (referencePromise) {
+                        referencePromise
+                          .then((referenceData) => {
+                            if (
+                              referenceData.tests?.blockNumber?.success &&
+                              data.tests?.blockNumber?.success
+                            ) {
+                              const referenceBlock =
+                                referenceData.tests.blockNumber.block;
+                              const currentBlock = data.tests.blockNumber.block;
+                              const difference = referenceBlock - currentBlock;
+                              data.blockDifference = {
+                                referenceBlock: referenceBlock,
+                                currentBlock: currentBlock,
+                                difference: difference,
+                                isBehind: difference > 0,
+                                isAhead: difference < 0,
+                                isSynced: difference === 0,
+                              };
+                              updateEndpointCard(endpoint.key, data);
+                            }
+                          })
+                          .catch(() => {
+                            // Reference endpoint failed, can't calculate difference
+                          });
+                      }
+                    }
+                  })
+                  .catch((error) => {
+                    console.error(`Error loading ${endpoint.name}:`, error);
+                    updateEndpointCard(endpoint.key, {
+                      name: endpoint.name,
+                      url: endpoint.url,
+                      health: { score: 0 },
+                      tests: {
+                        blockNumber: {
+                          success: false,
+                          error: 'Connection timeout',
+                        },
+                        chainId: {
+                          success: false,
+                          error: 'Connection timeout',
+                        },
+                        gasPrice: {
+                          success: false,
+                          error: 'Connection timeout',
+                        },
+                        syncStatus: {
+                          success: false,
+                          error: 'Connection timeout',
+                        },
+                      },
+                      error: 'Failed to load',
+                    });
+                  });
+              });
+
+              // Calculate summary when all endpoints are processed
+              Promise.allSettled(endpointPromises).then((results) => {
+                const allEndpoints = results
+                  .filter((result) => result.status === 'fulfilled')
+                  .map((result) => result.value)
+                  .filter(Boolean);
+
+                const totalEndpoints = allEndpoints.length;
+                const healthyEndpoints = allEndpoints.filter(
+                  (endpoint) => endpoint.health.score >= 80
+                ).length;
+                const partiallyHealthyEndpoints = allEndpoints.filter(
+                  (endpoint) =>
+                    endpoint.health.score >= 50 && endpoint.health.score < 80
+                ).length;
+                const unhealthyEndpoints = allEndpoints.filter(
+                  (endpoint) => endpoint.health.score < 50
+                ).length;
+
+                const summary = {
+                  total: totalEndpoints,
+                  healthy: healthyEndpoints,
+                  partiallyHealthy: partiallyHealthyEndpoints,
+                  unhealthy: unhealthyEndpoints,
+                  overallHealth:
+                    totalEndpoints > 0
+                      ? (healthyEndpoints / totalEndpoints) * 100
+                      : 0,
+                };
+
+                updateSummary({ summary });
+                document.getElementById(
+                  'last-updated'
+                ).textContent = `Last updated: ${new Date().toLocaleString()}`;
+              });
+            })
+            .catch((error) => {
+              console.error('❌ Error fetching endpoints:', error);
+              // container.innerHTML =
+              //   '<div class="loading">Error loading endpoints</div>';
+            });
+        } catch (error) {
+          console.error('Error refreshing data:', error);
+          document.getElementById('endpoints-container').innerHTML =
+            '<div class="loading">Error loading data</div>';
+        }
+      }
+
+      function updateEndpointCard(endpointKey, endpointData) {
+        console.log(
+          '🔄 updateEndpointCard called for:',
+          endpointKey,
+          endpointData
+        );
+        const container = document.getElementById('endpoints-container');
+        const card = container.querySelector(
+          `[data-endpoint="${endpointKey}"]`
+        );
+
+        // Clear loading message if this is the first card being created
+        const loadingElement = container.querySelector('.loading');
+        if (loadingElement && !card) {
+          console.log('🧹 Clearing loading message');
+          container.innerHTML = '';
+        }
+
+        if (card) {
+          console.log('📝 Updating existing card for:', endpointKey);
+          card.outerHTML = createEndpointCard(endpointKey, endpointData);
+        } else {
+          console.log('➕ Creating new card for:', endpointKey);
+          // If card doesn't exist, append it to the container
+          container.innerHTML += createEndpointCard(endpointKey, endpointData);
+        }
+      }
+
+      // Initial load
+      console.log('🚀 Dashboard script loaded');
+      refreshData();
+
+      // Auto-refresh every 30 seconds
+      setInterval(refreshData, 30000);
+    </script>
+  </body>
+</html>
