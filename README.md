@@ -53,13 +53,14 @@ A standalone web application for monitoring multiple RPC endpoints with comprehe
 #### Custom Configuration
 
 ```bash
-# Run with custom RPC URLs
+# Run with custom RPC URLs and port
 ./run-docker.sh \
   "https://rpc.hyperliquid-testnet.xyz/evm" \
   "http://your-node:3001/evm" \
   "http://your-archive:8547" \
   "http://your-node:8081/system" \
-  "http://your-archive:8081/system"
+  "http://your-archive:8081/system" \
+  3000
 ```
 
 #### Manual Docker Commands
