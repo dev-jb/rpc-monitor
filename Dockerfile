@@ -9,9 +9,8 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci --only=production
 
-# Copy application files (excluding node_modules and .git)
+# Copy application files
 COPY rpc_monitor.js ./
-COPY package*.json ./
 COPY public/ ./public/
 COPY README.md ./
 

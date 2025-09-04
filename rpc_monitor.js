@@ -5,62 +5,217 @@ const path = require('path');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const os = require('os');
+const WebSocket = require('ws');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
 const execAsync = promisify(exec);
 
-// Configuration - Multiple RPC endpoints to monitor
-// RPC URLs should be provided at runtime via environment variables
-const RPC_ENDPOINTS = {
-  hyperliquid_main: {
-    name: `Hyperliquid ${process.env.CHAIN || 'Testnet'}`,
-    url:
-      process.env.HYPERLIQUID_MAIN_URL ||
-      (() => {
-        console.warn(
-          '⚠️  HYPERLIQUID_MAIN_URL not set. Please provide at runtime.'
-        );
-        return 'https://rpc.hyperliquid-testnet.xyz/evm'; // Default fallback
-      })(),
-    expected_chain_id: process.env.HYPERLIQUID_CHAIN_ID || '998',
-    timeout: parseInt(process.env.HYPERLIQUID_TIMEOUT) || 10000,
-    is_reference: true, // This is the main reference node
-  },
-  local_node: {
-    name: process.env.LOCAL_NODE_NAME || 'Local HL Node',
-    url:
-      process.env.LOCAL_NODE_URL ||
-      (() => {
-        console.warn('⚠️  LOCAL_NODE_URL not set. Please provide at runtime.');
-        return 'http://localhost:3001/evm'; // Default fallback
-      })(),
-    expected_chain_id: process.env.LOCAL_NODE_CHAIN_ID || '998',
-    timeout: parseInt(process.env.LOCAL_NODE_TIMEOUT) || 5000,
-    compare_with: 'hyperliquid_main', // Compare block difference with main node
-    system_monitor_url: process.env.LOCAL_NODE_SYSTEM_URL, // System monitor URL for this node
-  },
-  archive_node: {
-    name: process.env.ARCHIVE_NODE_NAME || 'Archive Node',
-    url:
-      process.env.ARCHIVE_NODE_URL ||
-      (() => {
-        console.warn(
-          '⚠️  ARCHIVE_NODE_URL not set. Please provide at runtime.'
-        );
-        return 'http://localhost:8547'; // Default fallback
-      })(),
-    expected_chain_id: process.env.ARCHIVE_NODE_CHAIN_ID || '998',
-    timeout: parseInt(process.env.ARCHIVE_NODE_TIMEOUT) || 10000,
-    compare_with: 'hyperliquid_main', // Compare block difference with main node
-    system_monitor_url: process.env.ARCHIVE_NODE_SYSTEM_URL, // System monitor URL for this node
-  },
-};
+// Function to get dynamic RPC endpoints from environment variables
+function getRpcEndpoints() {
+  const endpoints = {};
+
+  // Check for up to 20 main RPC endpoints
+  for (let i = 1; i <= 20; i++) {
+    const name = process.env[`RPC_${i}_NAME`];
+    const url = process.env[`RPC_${i}_URL`];
+    const chainId = process.env[`RPC_${i}_CHAIN_ID`];
+    const timeout = process.env[`RPC_${i}_TIMEOUT`];
+    const compareWith = process.env[`RPC_${i}_COMPARE_WITH`];
+    const systemMonitorUrl = process.env[`RPC_${i}_SYSTEM_URL`];
+    const key = process.env[`RPC_${i}_KEY`] || `rpc_${i}`;
+    const isReference = process.env[`RPC_${i}_IS_REFERENCE`] === 'true';
+
+    if (name && url) {
+      endpoints[key] = {
+        name: name,
+        url: url,
+        expected_chain_id: chainId || '998',
+        timeout: parseInt(timeout) || 10000,
+        compare_with: compareWith || null,
+        system_monitor_url: systemMonitorUrl || null,
+        is_reference: isReference,
+      };
+    }
+  }
+
+  return endpoints;
+}
+
+// Get RPC endpoints configuration
+const RPC_ENDPOINTS = getRpcEndpoints();
+
+// External RPC endpoints for basic connectivity testing
+// These are separate from the monitored nodes and are just tested for basic RPC functionality
+// Configuration via environment variables:
+// EXTERNAL_RPC_1_NAME, EXTERNAL_RPC_1_URL, EXTERNAL_RPC_1_WS_URL, EXTERNAL_RPC_1_DESC
+// EXTERNAL_RPC_2_NAME, EXTERNAL_RPC_2_URL, EXTERNAL_RPC_2_WS_URL, EXTERNAL_RPC_2_DESC
+// etc.
+function getExternalRpcEndpoints() {
+  const endpoints = [];
+
+  // Check for up to 10 external RPC endpoints
+  for (let i = 1; i <= 10; i++) {
+    const name = process.env[`EXTERNAL_RPC_${i}_NAME`];
+    const rpcUrl = process.env[`EXTERNAL_RPC_${i}_URL`];
+    const wsUrl = process.env[`EXTERNAL_RPC_${i}_WS_URL`];
+    const description = process.env[`EXTERNAL_RPC_${i}_DESC`];
+    const apiKey = process.env[`EXTERNAL_RPC_${i}_API_KEY`];
+    const showInUI = process.env[`EXTERNAL_RPC_${i}_SHOW_IN_UI`] !== 'false'; // Default to true
+
+    if (name && rpcUrl) {
+      // Add API key to URLs if provided
+      let finalRpcUrl = rpcUrl;
+      let finalWsUrl =
+        wsUrl ||
+        rpcUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+
+      if (apiKey) {
+        // Add API key to RPC URL
+        const separator = finalRpcUrl.includes('?') ? '&' : '?';
+        finalRpcUrl = `${finalRpcUrl}/${apiKey}`;
+
+        // Add API key to WebSocket URL
+        const wsSeparator = finalWsUrl.includes('?') ? '&' : '?';
+        finalWsUrl = `${finalWsUrl}/${apiKey}`;
+      }
+
+      endpoints.push({
+        name: name,
+        rpcUrl: finalRpcUrl,
+        wsUrl: finalWsUrl,
+        description: description || `External RPC endpoint ${i}`,
+        showInUI: showInUI,
+        // For display purposes, show original URL without API key
+        displayRpcUrl: rpcUrl,
+        displayWsUrl:
+          wsUrl ||
+          rpcUrl.replace('http://', 'ws://').replace('https://', 'wss://'),
+      });
+    }
+  }
+
+  // If no external RPCs configured via env, use defaults
+  if (endpoints.length === 0) {
+    return [
+      {
+        name: 'Proxy RPC 1',
+        rpcUrl: 'http://18.142.83.122:9090',
+        wsUrl: 'ws://18.142.83.122:9091',
+        description: 'Internal proxy RPC endpoint',
+        showInUI: true,
+        displayRpcUrl: 'http://18.142.83.122:9090',
+        displayWsUrl: 'ws://18.142.83.122:9091',
+      },
+      {
+        name: 'HyperLiquid Testnet',
+        rpcUrl: 'https://rpc.hyperliquid-testnet.xyz/evm',
+        wsUrl: 'wss://rpc.hyperliquid-testnet.xyz/evm',
+        description: 'Official HyperLiquid testnet RPC',
+        showInUI: true,
+        displayRpcUrl: 'https://rpc.hyperliquid-testnet.xyz/evm',
+        displayWsUrl: 'wss://rpc.hyperliquid-testnet.xyz/evm',
+      },
+    ];
+  }
+
+  return endpoints;
+}
+
+const EXTERNAL_RPC_ENDPOINTS = getExternalRpcEndpoints();
 
 // Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Helper function to test WebSocket connectivity
+async function testWebSocket(wsUrl, timeout = 5000) {
+  return new Promise((resolve) => {
+    console.log(`🔌 Testing WebSocket: ${wsUrl}`);
+
+    const ws = new WebSocket(wsUrl);
+    let resolved = false;
+
+    const timeoutId = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        ws.terminate();
+        resolve({
+          success: false,
+          error: 'WebSocket connection timeout',
+        });
+      }
+    }, timeout);
+
+    ws.on('open', () => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeoutId);
+        ws.close();
+        resolve({
+          success: true,
+          message: 'WebSocket connection successful',
+        });
+      }
+    });
+
+    ws.on('error', (error) => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeoutId);
+        resolve({
+          success: false,
+          error: error.message,
+        });
+      }
+    });
+
+    ws.on('close', () => {
+      // Connection closed normally
+    });
+  });
+}
+
+// Helper function to test external RPC endpoints (basic connectivity)
+async function testExternalRpc(rpcUrl, timeout = 5000) {
+  try {
+    console.log(`🔗 Testing external RPC: ${rpcUrl}`);
+
+    const response = await axios.post(
+      rpcUrl,
+      {
+        jsonrpc: '2.0',
+        method: 'eth_blockNumber',
+        params: [],
+        id: 1,
+      },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: timeout,
+      }
+    );
+
+    if (response.data && response.data.result !== undefined) {
+      return {
+        success: true,
+        blockNumber: parseInt(response.data.result, 16),
+        responseTime: response.headers['x-response-time'] || 'N/A',
+      };
+    }
+
+    return {
+      success: false,
+      error: 'Invalid response format',
+    };
+  } catch (error) {
+    console.log(`💥 External RPC test error:`, error.message);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
 
 // Helper function to make RPC calls
 async function makeRpcCall(rpcUrl, method, params = [], timeout = 10000) {
@@ -563,6 +718,99 @@ app.get('/api/endpoints', (req, res) => {
   res.json(endpoints);
 });
 
+// Get external RPC endpoints list
+app.get('/api/external-rpcs', (req, res) => {
+  res.json(EXTERNAL_RPC_ENDPOINTS);
+});
+
+// Test all external RPC endpoints
+app.get('/api/external-rpcs/status', async (req, res) => {
+  try {
+    console.log('🔍 Testing external RPC and WebSocket endpoints...');
+
+    const results = await Promise.allSettled(
+      EXTERNAL_RPC_ENDPOINTS.map(async (endpoint) => {
+        // Test both RPC and WebSocket in parallel
+        const [rpcResult, wsResult] = await Promise.allSettled([
+          testExternalRpc(endpoint.rpcUrl),
+          testWebSocket(endpoint.wsUrl),
+        ]);
+
+        const rpcTest =
+          rpcResult.status === 'fulfilled'
+            ? rpcResult.value
+            : {
+                success: false,
+                error: rpcResult.reason?.message || 'RPC test failed',
+              };
+        const wsTest =
+          wsResult.status === 'fulfilled'
+            ? wsResult.value
+            : {
+                success: false,
+                error: wsResult.reason?.message || 'WebSocket test failed',
+              };
+
+        return {
+          name: endpoint.name,
+          rpcUrl: endpoint.displayRpcUrl || endpoint.rpcUrl,
+          wsUrl: endpoint.displayWsUrl || endpoint.wsUrl,
+          description: endpoint.description,
+          rpc: rpcTest,
+          websocket: wsTest,
+          overallSuccess: rpcTest.success && wsTest.success,
+          timestamp: new Date().toISOString(),
+        };
+      })
+    );
+
+    const endpointResults = results.map((result, index) => {
+      if (result.status === 'fulfilled') {
+        return result.value;
+      } else {
+        return {
+          name: EXTERNAL_RPC_ENDPOINTS[index].name,
+          rpcUrl:
+            EXTERNAL_RPC_ENDPOINTS[index].displayRpcUrl ||
+            EXTERNAL_RPC_ENDPOINTS[index].rpcUrl,
+          wsUrl:
+            EXTERNAL_RPC_ENDPOINTS[index].displayWsUrl ||
+            EXTERNAL_RPC_ENDPOINTS[index].wsUrl,
+          description: EXTERNAL_RPC_ENDPOINTS[index].description,
+          rpc: { success: false, error: 'RPC test failed' },
+          websocket: { success: false, error: 'WebSocket test failed' },
+          overallSuccess: false,
+          error: result.reason?.message || 'Unknown error',
+          timestamp: new Date().toISOString(),
+        };
+      }
+    });
+
+    // Filter out endpoints that shouldn't be shown in UI
+    const visibleEndpoints = endpointResults.filter((endpoint, index) => {
+      return EXTERNAL_RPC_ENDPOINTS[index].showInUI !== false;
+    });
+
+    const workingEndpoints = visibleEndpoints.filter(
+      (endpoint) => endpoint.overallSuccess
+    );
+    const failedEndpoints = visibleEndpoints.filter(
+      (endpoint) => !endpoint.overallSuccess
+    );
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      total: visibleEndpoints.length,
+      working: workingEndpoints.length,
+      failed: failedEndpoints.length,
+      endpoints: visibleEndpoints,
+    });
+  } catch (error) {
+    console.log('💥 External RPC status error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Dynamic endpoint route for any endpoint key (must come after specific routes)
 app.get('/api/:endpointKey', async (req, res) => {
   const { endpointKey } = req.params;
@@ -602,6 +850,131 @@ app.get('/config', (req, res) => {
   });
 });
 
+// External API endpoint for simplified external RPC status with block differences
+app.get('/api/external/status', async (req, res) => {
+  try {
+    // Find the reference RPC (the one marked as reference)
+    const referenceEndpoint = Object.entries(RPC_ENDPOINTS).find(
+      ([key, endpoint]) => endpoint.is_reference
+    );
+
+    if (!referenceEndpoint) {
+      return res.status(500).json({
+        error: 'No reference RPC found',
+        message:
+          'Please configure a reference RPC with RPC_1_IS_REFERENCE=true',
+      });
+    }
+
+    const [referenceKey, referenceRpc] = referenceEndpoint;
+
+    // Get reference RPC block number
+    let referenceBlock = null;
+    try {
+      const referenceResponse = await axios.get(
+        `http://localhost:${PORT}/api/${referenceKey}`,
+        {
+          timeout: 10000,
+        }
+      );
+      if (referenceResponse.data?.tests?.blockNumber?.success) {
+        referenceBlock = referenceResponse.data.tests.blockNumber.block;
+      }
+    } catch (error) {
+      console.error('Error getting reference RPC block:', error);
+      return res.status(500).json({
+        error: 'Reference RPC unavailable',
+        message: `Cannot get block number from reference RPC: ${error.message}`,
+      });
+    }
+
+    if (referenceBlock === null) {
+      return res.status(500).json({
+        error: 'Reference RPC block unavailable',
+        message: 'Reference RPC is not responding with valid block number',
+      });
+    }
+
+    // Test all external RPCs and calculate block differences
+    const results = [];
+
+    for (const externalRpc of EXTERNAL_RPC_ENDPOINTS) {
+      try {
+        // Test the external RPC
+        const rpcResponse = await axios.post(
+          externalRpc.rpcUrl,
+          {
+            jsonrpc: '2.0',
+            method: 'eth_blockNumber',
+            params: [],
+            id: 1,
+          },
+          {
+            timeout: 10000,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (rpcResponse.data?.result) {
+          const currentBlock = parseInt(rpcResponse.data.result, 16);
+          const difference = referenceBlock - currentBlock;
+
+          results.push({
+            rpc: externalRpc.displayRpcUrl,
+            blockDifference: {
+              referenceBlock: referenceBlock,
+              currentBlock: currentBlock,
+              difference: difference,
+              isBehind: difference > 0,
+              isAhead: difference < 0,
+              isSynced: difference === 0,
+            },
+            rpcName: externalRpc.name,
+            blockNumber: currentBlock,
+            isHealthy: Math.abs(difference) <= 5, // Consider healthy if within 5 blocks
+          });
+        } else {
+          results.push({
+            rpc: externalRpc.displayRpcUrl,
+            blockDifference: null,
+            rpcName: externalRpc.name,
+            blockNumber: null,
+            isHealthy: false,
+            error: 'Invalid response from RPC',
+          });
+        }
+      } catch (error) {
+        results.push({
+          rpc: externalRpc.displayRpcUrl,
+          blockDifference: null,
+          rpcName: externalRpc.name,
+          blockNumber: null,
+          isHealthy: false,
+          error: error.message,
+        });
+      }
+    }
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      referenceRpc: {
+        name: referenceRpc.name,
+        url: referenceRpc.displayUrl || referenceRpc.url,
+        blockNumber: referenceBlock,
+      },
+      data: results,
+    });
+  } catch (error) {
+    console.error('Error in external status API:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message,
+    });
+  }
+});
+
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 RPC Monitor running on port ${PORT}`);
@@ -614,16 +987,10 @@ app.listen(PORT, '0.0.0.0', () => {
   }
 
   console.log('\n📋 Configuration:');
-  console.log('  To customize RPC URLs, set these environment variables:');
-  console.log('  - HYPERLIQUID_MAIN_URL: Main reference RPC endpoint');
-  console.log('  - LOCAL_NODE_URL: Local HL node RPC endpoint');
-  console.log('  - ARCHIVE_NODE_URL: Archive node RPC endpoint');
-  console.log('  - LOCAL_NODE_SYSTEM_URL: System monitor URL for local node');
-  console.log(
-    '  - ARCHIVE_NODE_SYSTEM_URL: System monitor URL for archive node'
-  );
+  console.log('  To customize RPC endpoints, set these environment variables:');
+  console.log('  - RPC_1_NAME, RPC_1_URL, RPC_1_CHAIN_ID, etc.');
+  console.log('  - EXTERNAL_RPC_1_NAME, EXTERNAL_RPC_1_URL, etc.');
+  console.log('  See README.md for complete configuration options');
   console.log('\n💡 Example:');
-  console.log(
-    '  docker run -e HYPERLIQUID_MAIN_URL=https://your-rpc.com -e LOCAL_NODE_URL=http://your-node:3001/evm rpc-monitor'
-  );
+  console.log('  docker run --env-file .env rpc-monitor');
 });

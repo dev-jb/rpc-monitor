@@ -213,6 +213,164 @@
         color: #666;
         font-style: italic;
       }
+
+      .working-rpcs {
+        margin-bottom: 30px;
+      }
+
+      .working-rpcs-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .working-rpcs-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #eee;
+      }
+
+      .working-rpcs-title {
+        font-weight: bold;
+        color: #333;
+        font-size: 18px;
+        margin: 0;
+      }
+
+      .working-rpcs-count {
+        background: #28a745;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: bold;
+      }
+
+      .working-rpcs-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 10px;
+      }
+
+      .working-rpc-item {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid #28a745;
+        transition: all 0.2s ease;
+      }
+
+      .working-rpc-item:hover {
+        background: #e9ecef;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .working-rpc-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #28a745;
+        margin-right: 10px;
+        flex-shrink: 0;
+      }
+
+      .working-rpc-content {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .working-rpc-name {
+        font-weight: 600;
+        color: #333;
+        font-size: 14px;
+        margin-bottom: 2px;
+      }
+
+      .working-rpc-url {
+        color: #444;
+        font-size: 13px;
+        word-break: break-all;
+        font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono',
+          'Courier New', monospace;
+        font-weight: 500;
+        line-height: 1.4;
+        margin-bottom: 2px;
+      }
+
+      .working-rpc-health {
+        color: #28a745;
+        font-size: 12px;
+        font-weight: bold;
+        margin-left: 10px;
+        flex-shrink: 0;
+        text-align: right;
+      }
+
+      .working-rpc-description {
+        color: #666;
+        font-size: 12px;
+        margin-top: 4px;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1.3;
+      }
+
+      .working-rpc-block {
+        color: #666;
+        font-size: 10px;
+        margin-top: 2px;
+        font-family: 'Courier New', monospace;
+      }
+
+      .working-rpc-protocols {
+        display: flex;
+        gap: 10px;
+        margin-top: 5px;
+      }
+
+      .protocol-status {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 12px;
+        font-weight: 500;
+      }
+
+      .protocol-rpc {
+        background: #e3f2fd;
+        color: #1976d2;
+      }
+
+      .protocol-ws {
+        background: #f3e5f5;
+        color: #7b1fa2;
+      }
+
+      .protocol-success {
+        background: #e8f5e8;
+        color: #2e7d32;
+      }
+
+      .protocol-error {
+        background: #ffebee;
+        color: #c62828;
+      }
+
+      .no-working-rpcs {
+        text-align: center;
+        color: #666;
+        font-style: italic;
+        padding: 20px;
+      }
     </style>
   </head>
   <body>
@@ -248,6 +406,18 @@
         <div class="summary-card">
           <h3>Overall Health</h3>
           <div class="summary-value" id="overall-health">-</div>
+        </div>
+      </div>
+
+      <div class="working-rpcs">
+        <div class="working-rpcs-card">
+          <div class="working-rpcs-header">
+            <h3 class="working-rpcs-title">🔗 External RPCs</h3>
+            <div class="working-rpcs-count" id="working-rpcs-count">0</div>
+          </div>
+          <div class="working-rpcs-list" id="working-rpcs-list">
+            <div class="no-working-rpcs">Loading external RPCs...</div>
+          </div>
         </div>
       </div>
 
@@ -558,6 +728,96 @@
         ).textContent = `${summary.overallHealth.toFixed(1)}%`;
       }
 
+      async function updateWorkingRPCs() {
+        const workingRPCsList = document.getElementById('working-rpcs-list');
+        const workingRPCsCount = document.getElementById('working-rpcs-count');
+
+        try {
+          // Show loading state
+          workingRPCsList.innerHTML =
+            '<div class="no-working-rpcs">🔄 Testing external RPCs & WebSockets...</div>';
+
+          // Fetch external RPC status
+          const response = await fetch('/api/external-rpcs/status');
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          // Update count - count all endpoints (working or not)
+          const totalEndpointsCount = data.endpoints.length;
+          workingRPCsCount.textContent = totalEndpointsCount;
+
+          // Update list - show all endpoints regardless of status
+          const allEndpoints = data.endpoints;
+
+          if (allEndpoints.length === 0) {
+            workingRPCsList.innerHTML =
+              '<div class="no-working-rpcs">❌ No RPCs configured</div>';
+          } else {
+            const endpointsHtml = allEndpoints
+              .map(
+                (endpoint) => `
+              <div class="working-rpc-item">
+                <div class="working-rpc-indicator"></div>
+                <div class="working-rpc-content">
+                  <div class="working-rpc-name">${endpoint.name}</div>
+                  <div class="working-rpc-url">RPC: ${endpoint.rpcUrl}</div>
+                  <div class="working-rpc-url">WS: ${endpoint.wsUrl}</div>
+                  ${
+                    endpoint.description
+                      ? `<div class="working-rpc-description">${endpoint.description}</div>`
+                      : ''
+                  }
+                  <div class="working-rpc-protocols">
+                    <div class="protocol-status protocol-rpc ${
+                      endpoint.rpc.success
+                        ? 'protocol-success'
+                        : 'protocol-error'
+                    }">
+                      ${endpoint.rpc.success ? '✅' : '❌'} RPC
+                    </div>
+                    <div class="protocol-status protocol-ws ${
+                      endpoint.websocket.success
+                        ? 'protocol-success'
+                        : 'protocol-error'
+                    }">
+                      ${endpoint.websocket.success ? '✅' : '❌'} WS
+                    </div>
+                  </div>
+                </div>
+                <div class="working-rpc-health">
+                  <div>${
+                    endpoint.rpc.success && endpoint.websocket.success
+                      ? '✅ Both Working'
+                      : endpoint.rpc.success && !endpoint.websocket.success
+                      ? '⚠️ RPC Only'
+                      : !endpoint.rpc.success && endpoint.websocket.success
+                      ? '⚠️ WS Only'
+                      : '❌ Both Failed'
+                  }</div>
+                  ${
+                    endpoint.rpc.blockNumber
+                      ? `<div class="working-rpc-block">Block: ${endpoint.rpc.blockNumber.toLocaleString()}</div>`
+                      : ''
+                  }
+                </div>
+              </div>
+            `
+              )
+              .join('');
+
+            workingRPCsList.innerHTML = endpointsHtml;
+          }
+        } catch (error) {
+          console.error('Error fetching external RPCs:', error);
+          workingRPCsList.innerHTML =
+            '<div class="no-working-rpcs">❌ Error testing endpoints</div>';
+          workingRPCsCount.textContent = '0';
+        }
+      }
+
       function updateEndpoints(data) {
         const container = document.getElementById('endpoints-container');
         let endpointsHtml = '';
@@ -723,7 +983,15 @@
                       : 0,
                 };
 
+                // Create endpoints data object for working RPCs
+                const endpointsData = {};
+                allEndpoints.forEach((endpoint, index) => {
+                  const endpointKey = endpoints[index].key;
+                  endpointsData[endpointKey] = endpoint;
+                });
+
                 updateSummary({ summary });
+                updateWorkingRPCs(); // Call external RPC testing
                 document.getElementById(
                   'last-updated'
                 ).textContent = `Last updated: ${new Date().toLocaleString()}`;

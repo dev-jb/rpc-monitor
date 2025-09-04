@@ -5,15 +5,8 @@ services:
     build: .
     ports:
       - '8080:8080'
-    environment:
-      - PORT=8080
-      - CHAIN=Testnet
-      - HYPERLIQUID_CHAIN_ID=998
-      - HYPERLIQUID_TIMEOUT=10000
-      - LOCAL_NODE_CHAIN_ID=998
-      - LOCAL_NODE_TIMEOUT=5000
-      - ARCHIVE_NODE_CHAIN_ID=998
-      - ARCHIVE_NODE_TIMEOUT=10000
+    env_file:
+      - .env
     restart: unless-stopped
     healthcheck:
       test:
