@@ -40,8 +40,8 @@ A standalone web application for monitoring multiple RPC endpoints with comprehe
 
    # External RPC endpoints
    EXTERNAL_RPC_1_NAME="Proxy RPC"
-   EXTERNAL_RPC_1_URL="http://18.142.83.122:9090"
-   EXTERNAL_RPC_1_WS_URL="ws://18.142.83.122:9091"
+   EXTERNAL_RPC_1_URL="http://your-proxy-server:9090"
+   EXTERNAL_RPC_1_WS_URL="ws://your-proxy-server:9091"
    EXTERNAL_RPC_1_DESC="Internal proxy RPC endpoint"
    ```
 
@@ -115,18 +115,18 @@ RPC_1_IS_REFERENCE=true
 
 # Main RPC 2 (Local Node)
 RPC_2_NAME=Local HL Node
-RPC_2_URL=http://18.142.83.122:3001/evm
+RPC_2_URL=http://your-node:3001/evm
 RPC_2_CHAIN_ID=998
 RPC_2_COMPARE_WITH=hyperliquid_main
-RPC_2_SYSTEM_URL=http://18.142.83.122:8081/system
+RPC_2_SYSTEM_URL=http://your-node:8081/system
 RPC_2_KEY=local_node
 
 # Main RPC 3 (Archive Node)
 RPC_3_NAME=Archive Node
-RPC_3_URL=http://18.142.83.122:8545
+RPC_3_URL=http://your-archive-node:8545
 RPC_3_CHAIN_ID=998
 RPC_3_COMPARE_WITH=hyperliquid_main
-RPC_3_SYSTEM_URL=http://18.142.83.122:8081/system
+RPC_3_SYSTEM_URL=http://your-archive-node:8081/system
 RPC_3_KEY=archive_node
 
 # Main RPC 4 (Alchemy with API key - hidden from frontend)
@@ -142,22 +142,22 @@ RPC_4_KEY=alchemy
 
 The "Working RPCs" section displays external RPC endpoints that are tested for basic connectivity. These are configured via environment variables:
 
-| Variable Pattern              | Description                          | Example                                           |
-| ----------------------------- | ------------------------------------ | ------------------------------------------------- |
-| `EXTERNAL_RPC_{N}_NAME`       | Name of the external RPC             | `EXTERNAL_RPC_1_NAME=Proxy RPC 1`                 |
-| `EXTERNAL_RPC_{N}_URL`        | RPC endpoint URL                     | `EXTERNAL_RPC_1_URL=http://18.142.83.122:9090`    |
-| `EXTERNAL_RPC_{N}_WS_URL`     | WebSocket endpoint URL (optional)    | `EXTERNAL_RPC_1_WS_URL=ws://18.142.83.122:9091`   |
-| `EXTERNAL_RPC_{N}_DESC`       | Description (optional)               | `EXTERNAL_RPC_1_DESC=Internal proxy RPC endpoint` |
-| `EXTERNAL_RPC_{N}_API_KEY`    | API key (optional)                   | `EXTERNAL_RPC_1_API_KEY=your-api-key-here`        |
-| `EXTERNAL_RPC_{N}_SHOW_IN_UI` | Show in UI (optional, default: true) | `EXTERNAL_RPC_1_SHOW_IN_UI=false`                 |
+| Variable Pattern              | Description                          | Example                                             |
+| ----------------------------- | ------------------------------------ | --------------------------------------------------- |
+| `EXTERNAL_RPC_{N}_NAME`       | Name of the external RPC             | `EXTERNAL_RPC_1_NAME=Proxy RPC 1`                   |
+| `EXTERNAL_RPC_{N}_URL`        | RPC endpoint URL                     | `EXTERNAL_RPC_1_URL=http://your-proxy-server:9090`  |
+| `EXTERNAL_RPC_{N}_WS_URL`     | WebSocket endpoint URL (optional)    | `EXTERNAL_RPC_1_WS_URL=ws://your-proxy-server:9091` |
+| `EXTERNAL_RPC_{N}_DESC`       | Description (optional)               | `EXTERNAL_RPC_1_DESC=Internal proxy RPC endpoint`   |
+| `EXTERNAL_RPC_{N}_API_KEY`    | API key (optional)                   | `EXTERNAL_RPC_1_API_KEY=your-api-key-here`          |
+| `EXTERNAL_RPC_{N}_SHOW_IN_UI` | Show in UI (optional, default: true) | `EXTERNAL_RPC_1_SHOW_IN_UI=false`                   |
 
 **Example Configuration**:
 
 ```bash
 # External RPC 1
 EXTERNAL_RPC_1_NAME=Proxy RPC 1
-EXTERNAL_RPC_1_URL=http://18.142.83.122:9090
-EXTERNAL_RPC_1_WS_URL=ws://18.142.83.122:9091
+EXTERNAL_RPC_1_URL=http://your-proxy-server:9090
+EXTERNAL_RPC_1_WS_URL=ws://your-proxy-server:9091
 EXTERNAL_RPC_1_DESC=Internal proxy RPC endpoint
 
 # External RPC 2

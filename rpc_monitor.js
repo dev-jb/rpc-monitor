@@ -101,12 +101,12 @@ function getExternalRpcEndpoints() {
     return [
       {
         name: 'Proxy RPC 1',
-        rpcUrl: 'http://18.142.83.122:9090',
-        wsUrl: 'ws://18.142.83.122:9091',
+        rpcUrl: 'http://your-proxy-server:9090',
+        wsUrl: 'ws://your-proxy-server:9091',
         description: 'Internal proxy RPC endpoint',
         showInUI: true,
-        displayRpcUrl: 'http://18.142.83.122:9090',
-        displayWsUrl: 'ws://18.142.83.122:9091',
+        displayRpcUrl: 'http://your-proxy-server:9090',
+        displayWsUrl: 'ws://your-proxy-server:9091',
       },
       {
         name: 'HyperLiquid Testnet',
