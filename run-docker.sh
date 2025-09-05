@@ -56,6 +56,8 @@ show_help() {
     echo "  $0                    # Use defaults"
     echo "  $0 3000              # Use port 3000"
     echo "  $0 3000 my-monitor   # Use port 3000 and container name 'my-monitor'"
+    echo "  $0 -l                # Start with logs checking enabled"
+    echo "  $0 3000 -l           # Use port 3000 with logs checking"
     echo ""
     echo "Environment variables (.env file):"
     echo "  PORT=3000"
@@ -65,6 +67,7 @@ show_help() {
     echo "Options:"
     echo "  -h, --help    Show this help message"
     echo "  -d, --debug   Enable debug mode (show .env file contents)"
+    echo "  -l, --logs    Check container logs after starting"
     exit 0
 }
 
@@ -80,6 +83,15 @@ if [ "$1" = "-d" ] || [ "$1" = "--debug" ]; then
     shift # Remove the debug flag from arguments
 else
     DEBUG_MODE=false
+fi
+
+# Check for logs flag
+if [ "$1" = "-l" ] || [ "$1" = "--logs" ]; then
+    echo "📋 Log checking enabled"
+    CHECK_LOGS=true
+    shift # Remove the logs flag from arguments
+else
+    CHECK_LOGS=false
 fi
 
 # Detect if running on a server (no display)
@@ -320,10 +332,29 @@ echo -e "${BLUE}🔍 Container logs: docker logs -f $CONTAINER_NAME${NC}"
 echo -e "${BLUE}🛑 Stop container: docker stop $CONTAINER_NAME${NC}"
 echo ""
 
-# Show logs for a few seconds (only in interactive mode)
-if [ -t 1 ]; then
+# Show logs based on flags and environment
+if [ "$CHECK_LOGS" = true ] || [ -t 1 ]; then
     echo -e "${YELLOW}📋 Recent logs:${NC}"
     docker logs --tail 10 $CONTAINER_NAME
+    echo ""
+    echo -e "${BLUE}📋 Log Commands:${NC}"
+    echo -e "${GREEN}  View live logs:${NC} docker logs -f $CONTAINER_NAME"
+    echo -e "${GREEN}  View recent logs:${NC} docker logs --tail 50 $CONTAINER_NAME"
+    echo -e "${GREEN}  View all logs:${NC} docker logs $CONTAINER_NAME"
+    echo -e "${GREEN}  Check container status:${NC} docker ps -f name=$CONTAINER_NAME"
+    echo ""
+    
+    # If logs flag is explicitly set, offer to follow logs
+    if [ "$CHECK_LOGS" = true ]; then
+        echo -e "${YELLOW}💡 Would you like to follow live logs? (y/n):${NC}"
+        read -r follow_logs
+        if [[ "$follow_logs" =~ ^[Yy]$ ]]; then
+            echo -e "${YELLOW}📋 Following live logs (Press Ctrl+C to stop):${NC}"
+            docker logs -f $CONTAINER_NAME
+        fi
+    else
+        echo -e "${YELLOW}💡 Press Ctrl+C to stop following logs, or run 'docker stop $CONTAINER_NAME' to stop the container${NC}"
+    fi
 else
     echo -e "${YELLOW}📋 Container started. Use 'docker logs -f $CONTAINER_NAME' to view logs${NC}"
 fi 
