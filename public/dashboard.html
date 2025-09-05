@@ -23,6 +23,12 @@
         color: #333;
         margin: 0;
       }
+      .dashboard-subtitle {
+        color: #666;
+        font-size: 16px;
+        margin-top: 5px;
+        font-style: italic;
+      }
       .summary-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -376,7 +382,12 @@
   <body>
     <div class="container">
       <div class="header">
-        <h1>🔗 RPC Endpoint Monitor</h1>
+        <h1 id="dashboard-title">🔗 Hyperliquid Mainnet RPC Monitor</h1>
+        <div
+          id="dashboard-subtitle"
+          class="dashboard-subtitle"
+          style="display: none"
+        ></div>
         <button class="refresh-btn" onclick="refreshData()">🔄 Refresh</button>
       </div>
 
@@ -429,6 +440,66 @@
     </div>
 
     <script>
+      // Dashboard configuration
+      let dashboardConfig = {
+        title: '🔗 Hyperliquid Mainnet RPC Monitor',
+        subtitle: '',
+        refreshInterval: 30000,
+        showSystemResources: true,
+        showBlockDifferences: true,
+        theme: 'default',
+      };
+
+      // Load dashboard configuration
+      async function loadDashboardConfig() {
+        try {
+          const response = await fetch('/api/dashboard-config');
+          if (response.ok) {
+            dashboardConfig = await response.json();
+            applyDashboardConfig();
+          }
+        } catch (error) {
+          console.error('Error loading dashboard config:', error);
+        }
+      }
+
+      // Apply dashboard configuration
+      function applyDashboardConfig() {
+        // Update title
+        const titleElement = document.getElementById('dashboard-title');
+        if (titleElement) {
+          titleElement.textContent = dashboardConfig.title;
+        }
+
+        // Update subtitle
+        const subtitleElement = document.getElementById('dashboard-subtitle');
+        if (subtitleElement && dashboardConfig.subtitle) {
+          subtitleElement.textContent = dashboardConfig.subtitle;
+          subtitleElement.style.display = 'block';
+        }
+
+        // Update refresh interval
+        if (
+          dashboardConfig.refreshInterval &&
+          dashboardConfig.refreshInterval !== 30000
+        ) {
+          // Clear existing interval
+          if (window.refreshIntervalId) {
+            clearInterval(window.refreshIntervalId);
+          }
+          // Set new interval
+          window.refreshIntervalId = setInterval(
+            refreshData,
+            dashboardConfig.refreshInterval
+          );
+        }
+
+        // Apply theme if different from default
+        if (dashboardConfig.theme && dashboardConfig.theme !== 'default') {
+          document.body.classList.add(`theme-${dashboardConfig.theme}`);
+        }
+      }
+
       function getHealthClass(score) {
         if (score >= 80) return 'health-good';
         if (score >= 50) return 'health-warning';
@@ -735,7 +806,7 @@
         try {
           // Show loading state
           workingRPCsList.innerHTML =
-            '<div class="no-working-rpcs">🔄 Testing external RPCs & WebSockets...</div>';
+            '<div class="no-working-rpcs">🔄 Testing RPCs & WebSockets...</div>';
 
           // Fetch external RPC status
           const response = await fetch('/api/external-rpcs/status');
@@ -1039,10 +1110,14 @@
 
       // Initial load
       console.log('🚀 Dashboard script loaded');
-      refreshData();
 
-      // Auto-refresh every 30 seconds
-      setInterval(refreshData, 30000);
+      // Load dashboard configuration first
+      loadDashboardConfig().then(() => {
+        refreshData();
+      });
+
+      // Auto-refresh every 30 seconds (will be updated by config if different)
+      window.refreshIntervalId = setInterval(refreshData, 30000);
     </script>
   </body>
 </html>

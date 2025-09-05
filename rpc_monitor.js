@@ -629,6 +629,43 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
+// Dashboard configuration endpoint
+app.get('/api/dashboard-config', (req, res) => {
+  try {
+    const config = {
+      title: process.env.DASHBOARD_TITLE || 'Hyperliquid RPC Monitor',
+      subtitle: process.env.DASHBOARD_SUBTITLE || '',
+      refreshInterval:
+        parseInt(process.env.DASHBOARD_REFRESH_INTERVAL) || 30000,
+      showSystemResources:
+        process.env.DASHBOARD_SHOW_SYSTEM_RESOURCES !== 'false',
+      showBlockDifferences:
+        process.env.DASHBOARD_SHOW_BLOCK_DIFFERENCES !== 'false',
+      theme: process.env.DASHBOARD_THEME || 'default',
+    };
+
+    console.log('🔧 Dashboard config requested:', config);
+    console.log('🔧 DASHBOARD_TITLE env var:', process.env.DASHBOARD_TITLE);
+
+    res.json(config);
+  } catch (error) {
+    console.error('Error getting dashboard config:', error);
+    res.status(500).json({ error: 'Failed to get dashboard configuration' });
+  }
+});
+
+// Test endpoint to verify server is working
+app.get('/api/test', (req, res) => {
+  res.json({
+    message: 'Server is working!',
+    timestamp: new Date().toISOString(),
+    env: {
+      DASHBOARD_TITLE: process.env.DASHBOARD_TITLE,
+      DASHBOARD_SUBTITLE: process.env.DASHBOARD_SUBTITLE,
+    },
+  });
+});
+
 app.get('/api/status', async (req, res) => {
   try {
     console.log('🔄 API Status request received');

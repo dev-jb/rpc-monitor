@@ -86,6 +86,17 @@ docker-compose up -d
 
 ### Environment Variables
 
+#### Dashboard Configuration
+
+| Variable                           | Description                             | Example                                     |
+| ---------------------------------- | --------------------------------------- | ------------------------------------------- |
+| `DASHBOARD_TITLE`                  | Dashboard title displayed in header     | `DASHBOARD_TITLE=My Custom RPC Monitor`     |
+| `DASHBOARD_SUBTITLE`               | Optional subtitle displayed below title | `DASHBOARD_SUBTITLE=Production Environment` |
+| `DASHBOARD_REFRESH_INTERVAL`       | Auto-refresh interval in milliseconds   | `DASHBOARD_REFRESH_INTERVAL=60000`          |
+| `DASHBOARD_SHOW_SYSTEM_RESOURCES`  | Show system resources (CPU, RAM, disk)  | `DASHBOARD_SHOW_SYSTEM_RESOURCES=true`      |
+| `DASHBOARD_SHOW_BLOCK_DIFFERENCES` | Show block difference comparisons       | `DASHBOARD_SHOW_BLOCK_DIFFERENCES=true`     |
+| `DASHBOARD_THEME`                  | Dashboard theme (future feature)        | `DASHBOARD_THEME=dark`                      |
+
 #### Main RPC Endpoints (Detailed Monitoring)
 
 You can configure up to 20 main RPC endpoints for detailed monitoring with block differences, system resources, etc.
@@ -106,6 +117,13 @@ You can configure up to 20 main RPC endpoints for detailed monitoring with block
 **Example Configuration**:
 
 ```bash
+# Dashboard Configuration
+DASHBOARD_TITLE=My Custom RPC Monitor
+DASHBOARD_SUBTITLE=Production Environment - Mainnet
+DASHBOARD_REFRESH_INTERVAL=60000
+DASHBOARD_SHOW_SYSTEM_RESOURCES=true
+DASHBOARD_SHOW_BLOCK_DIFFERENCES=true
+
 # Main RPC 1 (Reference Node)
 RPC_1_NAME=Hyperliquid Testnet
 RPC_1_URL=https://rpc.hyperliquid-testnet.xyz/evm
