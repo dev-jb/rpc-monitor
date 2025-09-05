@@ -262,16 +262,12 @@ if command -v netstat > /dev/null 2>&1; then
 fi
 
 # Check if image exists, build if not
-if ! docker image inspect rpc-monitor > /dev/null 2>&1; then
-    echo -e "${YELLOW}📦 Building Docker image...${NC}"
-    if ! docker build -t rpc-monitor .; then
-        echo -e "${RED}❌ Failed to build Docker image${NC}"
-        exit 1
-    fi
-    echo -e "${GREEN}✅ Image built successfully${NC}"
-else
-    echo -e "${GREEN}✅ Docker image found${NC}"
+echo -e "${YELLOW}📦 Building Docker image...${NC}"
+if ! docker build -t rpc-monitor .; then
+    echo -e "${RED}❌ Failed to build Docker image${NC}"
+    exit 1
 fi
+echo -e "${GREEN}✅ Image built successfully${NC}"
 
 # Stop existing container if running
 if docker ps -q -f name=$CONTAINER_NAME > /dev/null 2>&1; then
